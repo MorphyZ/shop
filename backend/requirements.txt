@@ -1,0 +1,9 @@
+Django==6.0.5
+djangorestframework==3.17.1
+django-cors-headers==4.9.0
+django-filter==25.2
+psycopg[binary]==3.3.4
+python-dotenv==1.2.2
+reportlab==4.5.1
+
+gunicorn==25.3.0

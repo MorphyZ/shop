@@ -1,0 +1,16 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(circle at top, #fffdf7, #eef2fb 65%);
+}
+
+a {
+  color: #1f4fbf;
+}
+
