@@ -1,76 +1,103 @@
 # АСУ «Магазин» (Django + Vue + PostgreSQL)
 
-Веб-приложение для директора продовольственного магазина.
+Учебный/практический проект для директора продовольственного магазина.
 
-## Что реализовано
+## 1) Что уже реализовано
 
-- Backend: `Django + DRF` с бизнес-логикой закупок, продаж и отчетов.
-- Frontend: `Vue 3 + Vite` (с `npm` зависимостями и адаптивным интерфейсом).
-- БД: `PostgreSQL` (есть fallback в `SQLite` для быстрой локальной проверки).
-- Роли: `admin` и `user`.
-- Валидация:
-  - серверная: сериализаторы, ограничения моделей, бизнес-проверки;
-  - клиентская: required-поля, числовые ограничения, проверки перед отправкой.
-- Документы и отчеты:
-  - PDF-заявка на закупку;
-  - ежемесячный отчет по отделам с прибылью.
+- Backend: Django + DRF, роли `admin` / `user`, CRUD, бизнес-операции.
+- Frontend: Vue 3 + Vite + npm.
+- БД: PostgreSQL (основной режим), SQLite (временный fallback).
+- Документы: PDF-заявка на закупку.
+- Отчеты: ежемесячный отчет по отделам с расчетом прибыли.
 
-## Предметная модель (10 таблиц)
+## 2) Главная причина твоей ошибки на фронте
 
-1. `Store` — магазин (класс, номер)
-2. `Department` — отдел (с заведующим, статусом открыт/закрыт)
-3. `SupplierBase` — торговая база
-4. `Product` — товар
-5. `BaseStock` — остатки товара на базах
-6. `DepartmentStock` — остатки товара в отделах
-7. `PurchaseOrder` — закупка
-8. `PurchaseOrderItem` — позиции закупки
-9. `Sale` — продажа
-10. `SaleItem` — позиции продажи
+Ошибка вида:
 
-## Функции из задания
+`Unexpected token '﻿', "﻿{ ... }" is not valid JSON`
 
-- Какие товары есть в магазине: `GET /api/dashboard/store-products/?store_id=...`
-- Какие товары есть на базе: `GET /api/dashboard/base-products/`
-- Какие отсутствующие товары можно заказать: `GET /api/dashboard/missing-products/?store_id=...`
-- Какие товары и в каком количестве есть в отделе: `GET /api/departments/{id}/inventory/`
-- Список заведующих: `GET /api/dashboard/managers/?store_id=...`
-- Суммарная стоимость по отделам: `GET /api/dashboard/department-values/?store_id=...`
-- На каких базах и в каких количествах есть товар: `GET /api/dashboard/product-bases/?product_name=...`
-- Оприходование закупки: `POST /api/purchase-orders/{id}/receive/`
-- PDF-заявка: `GET /api/purchase-orders/{id}/document/`
-- Ежемесячный отчет: `GET /api/reports/monthly/?store_id=...&year=...&month=...`
+означает BOM в начале JSON/JS/CSS-файлов. В проекте это исправлено (файлы пересохранены в UTF-8 без BOM).
 
-## Роли
+## 3) Важно про PostgreSQL
 
-- `admin`: полный доступ (CRUD, ценообразование, открытие/закрытие отделов, перемещение товара, закупки).
-- `user`: просмотр данных и проведение продаж.
+`pgAdmin` сам по себе не является сервером БД. Нужен установленный **PostgreSQL Server**.
 
-Демо-пользователи (после `seed_demo`):
+Проверка в PowerShell:
 
-- `admin / admin12345`
-- `operator / user12345`
+```powershell
+psql --version
+```
 
-## Локальный запуск (без Docker)
+Если команда не найдена, значит сервер/клиент PostgreSQL не установлен или не добавлен в PATH.
 
-### 1) Backend
+## 4) Локальный запуск без Docker (рекомендуется начать так)
+
+### Шаг 1. Python окружение
 
 ```powershell
 cd D:\Kurs
 python -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip
 .\.venv\Scripts\python -m pip install -r backend\requirements.txt
+```
+
+### Шаг 2. Настройка `.env`
+
+```powershell
 Copy-Item .env.example .env
 ```
 
-Заполни `.env` для PostgreSQL (или включи временно `USE_SQLITE=1`).
+В `.env` должны быть параметры PostgreSQL:
+
+```env
+POSTGRES_DB=shop_db
+POSTGRES_USER=shop_user
+POSTGRES_PASSWORD=shop_pass
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+USE_SQLITE=0
+```
+
+### Шаг 3. Создать БД и пользователя (один раз)
+
+Вариант через `psql`:
+
+```sql
+CREATE USER shop_user WITH PASSWORD 'shop_pass';
+CREATE DATABASE shop_db OWNER shop_user;
+GRANT ALL PRIVILEGES ON DATABASE shop_db TO shop_user;
+```
+
+Если `shop_user` уже создан, выполняй только `CREATE DATABASE ... OWNER ...`.
+
+Или автоматически скриптом:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_postgres.ps1
+```
+
+### Шаг 4. Миграции и демо-данные
 
 ```powershell
 .\.venv\Scripts\python backend\manage.py migrate
 .\.venv\Scripts\python backend\manage.py seed_demo
-.\.venv\Scripts\python backend\manage.py runserver
 ```
 
-### 2) Frontend (npm обязателен)
+Демо-пользователи:
+- `admin / admin12345`
+- `operator / user12345`
+
+### Шаг 5. Запуск backend
+
+```powershell
+.\.venv\Scripts\python backend\manage.py runserver 127.0.0.1:8000
+```
+
+Проверка:
+- [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+- [http://127.0.0.1:8000/api/](http://127.0.0.1:8000/api/)
+
+### Шаг 6. Запуск frontend
 
 ```powershell
 cd D:\Kurs\frontend
@@ -78,48 +105,59 @@ npm install
 npm run dev
 ```
 
-Frontend: `http://localhost:5173`  
-Backend: `http://localhost:8000`
+Открыть:
+- [http://127.0.0.1:5173](http://127.0.0.1:5173)
 
-## Запуск через Docker (лучший вариант для показа на другом ПК)
+## 5) Если PostgreSQL еще не установлен
+
+Временный режим (чтобы продолжать разработку):
+
+```env
+USE_SQLITE=1
+```
+
+И далее:
+
+```powershell
+.\.venv\Scripts\python backend\manage.py migrate
+.\.venv\Scripts\python backend\manage.py seed_demo
+.\.venv\Scripts\python backend\manage.py runserver 127.0.0.1:8000
+```
+
+Потом возвращаешь `USE_SQLITE=0` и переходишь на PostgreSQL.
+
+## 6) Git поток (dev/prod)
+
+В репозитории уже есть:
+- ветка `main`
+- ветка `develop`
+- workflow: `.github/workflows/docker-images.yml`
+
+Логика:
+- push в `develop` -> build/push docker-образов с тегами `dev` и `dev-<sha>`
+- push тега `v*` (например `v1.0.0`) -> build/push версии и `latest` (prod)
+
+## 7) Подключение к GitHub
 
 ```powershell
 cd D:\Kurs
-Copy-Item .env.example .env
-docker compose up --build
+git remote add origin <ТВОЙ_URL_РЕПО>
+git push -u origin main
+git push -u origin develop
 ```
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
-- Postgres: `localhost:5432`
-
-Production-сборка:
+Релиз в prod:
 
 ```powershell
-docker compose -f docker-compose.prod.yml up --build -d
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-## Dev/Prod поток через GitHub
+## 8) Когда нужен Docker
 
-Есть workflow: `.github/workflows/docker-images.yml`
+Сейчас Docker не обязателен. Для обучения/разработки запускай без Docker.
 
-- push в `develop` -> публикуются образы с тегами `dev` и `dev-<sha>`
-- push тега `v*` (например `v1.0.0`) -> публикуются теги версии и `latest`
-
-Это дает схему:
-
-- локально разрабатываешь;
-- push в `develop` -> обновляется dev-образ;
-- создаешь git tag -> обновляется prod-образ.
-
-## Структура проекта
-
-- `backend/` — Django API и бизнес-логика
-- `frontend/` — Vue/Vite клиент
-- `docker-compose.yml` — dev-окружение
-- `docker-compose.prod.yml` — production-окружение
-- `.github/workflows/docker-images.yml` — CI/CD для Docker-образов
-
-## Важно
-
-В текущем окружении Codex у меня не было доступного `npm` в PATH, поэтому я подготовил полноценный `frontend/package.json`, конфиги и исходники, но не смог локально выполнить `npm install && npm run build` именно в этом окружении. На твоем ПК (или в Docker) это запускается штатно.
+Docker нужен, когда:
+- хочешь одинаковый запуск на любом ПК одной командой;
+- хочешь проще показывать проект преподавателю/заказчику;
+- хочешь стабильно использовать CI/CD образы dev/prod.
