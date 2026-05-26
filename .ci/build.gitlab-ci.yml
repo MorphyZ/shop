@@ -1,34 +1,27 @@
-.build_kaniko:
-  stage: build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  services: []
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - >
-      cat > /kaniko/.docker/config.json <<EOF
-      {"auths":{"$CI_REGISTRY":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"}}}
-      EOF
+build_backend:
+  extends: .docker
+  stage: build_backend
+  cache:
+    paths:
+      - .cache/pip
+  script:
+    - !reference [.docker_login, before_script]
+    - docker build -f backend/Dockerfile -t "$CI_REGISTRY_IMAGE/backend:$DOCKER_TAG" .
+    - docker push "$CI_REGISTRY_IMAGE/backend:$DOCKER_TAG"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/
 
-build_backend:
-  extends: .build_kaniko
-  script:
-    - >
-      /kaniko/executor
-      --context "$CI_PROJECT_DIR"
-      --dockerfile "$CI_PROJECT_DIR/backend/Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE/backend:$DOCKER_TAG"
-
 build_frontend:
-  extends: .build_kaniko
+  extends: .docker
+  stage: build_frontend
+  cache:
+    paths:
+      - .cache/pip
   script:
-    - >
-      /kaniko/executor
-      --context "$CI_PROJECT_DIR"
-      --dockerfile "$CI_PROJECT_DIR/frontend/Dockerfile"
-      --target prod
-      --destination "$CI_REGISTRY_IMAGE/frontend:$DOCKER_TAG"
+    - !reference [.docker_login, before_script]
+    - docker build -f frontend/Dockerfile --target prod -t "$CI_REGISTRY_IMAGE/frontend:$DOCKER_TAG" .
+    - docker push "$CI_REGISTRY_IMAGE/frontend:$DOCKER_TAG"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/

@@ -1,14 +1,15 @@
+image: alpine
+
 stages:
   - .pre
-  - build
+  - build_backend
+  - build_frontend
   - publish
   - deploy
 
-default:
-  services: []
-
 include:
   - local: '.ci/workflow.gitlab-ci.yml'
+  - local: '.ci/docker.gitlab-ci.yml'
   - local: '.ci/docker-auth.yml'
   - local: '.ci/gitversion-ci-cd-plugin-extension.gitlab-ci.yml'
   - local: '.ci/prepare-settings.yml'
@@ -17,12 +18,11 @@ include:
   - local: '.ci/deploy.gitlab-ci.yml'
 
 variables:
-  DOCKER_AUTH_CONFIG:
-    value: '{"auths":{"registry.flexidev.ru":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"},"$CI_REGISTRY":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"}}}'
-    description: Docker auth for pulling private service images on shared runner
   DOCKER_TAG:
     value: main
     description: Docker image tag used for build and deploy
   DEPLOY_ENVIRONMENT:
     value: development
     description: Target environment (development or production)
+  DOCKER_BUILDKIT: "1"
+  DOCKER_TLS_CERTDIR: ""

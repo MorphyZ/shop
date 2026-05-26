@@ -1,8 +1,10 @@
 variables:
   DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_TLS_CERTDIR: ""
   
 .docker:
-  image: docker:27
+  image: docker:latest
   services:
-    - docker:27-dind
+    - docker:dind
+  before_script:
+    - docker info
