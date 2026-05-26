@@ -1,6 +1,7 @@
 release:
   stage: publish
   image: lettore/gitlab-release-cli:latest
+  services: []
   script: echo "Running the release job."
   rules:
     - if: $RELEASE_VERSION

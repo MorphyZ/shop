@@ -3,6 +3,7 @@
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
+  services: []
   before_script:
     - mkdir -p /kaniko/.docker
     - >

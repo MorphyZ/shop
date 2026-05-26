@@ -3,6 +3,7 @@ gitversion:
   image:
     name: gittools/gitversion:latest
     entrypoint: [""]
+  services: []
   stage: .pre
   variables:
     GIT_STRATEGY: fetch

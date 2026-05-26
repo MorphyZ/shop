@@ -4,13 +4,16 @@ stages:
   - publish
   - deploy
 
+default:
+  services: []
+
 include:
-  - local: 'workflow.gitlab-ci.yml'
-  - local: 'docker.gitlab-ci.yml'
-  - local: 'docker-auth.yml'
-  - local: 'gitversion-ci-cd-plugin-extension.gitlab-ci.yml'
-  - local: 'prepare-settings.yml'
-  - local: 'release.gitlab-ci.yml'
+  - local: '.ci/workflow.gitlab-ci.yml'
+  - local: '.ci/docker.gitlab-ci.yml'
+  - local: '.ci/docker-auth.yml'
+  - local: '.ci/gitversion-ci-cd-plugin-extension.gitlab-ci.yml'
+  - local: '.ci/prepare-settings.yml'
+  - local: '.ci/release.gitlab-ci.yml'
   - local: '.ci/build.gitlab-ci.yml'
   - local: '.ci/deploy.gitlab-ci.yml'
 
