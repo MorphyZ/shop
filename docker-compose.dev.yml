@@ -45,6 +45,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       target: prod
+      args:
+        VITE_API_BASE_URL: "/api"А
     restart: unless-stopped
     depends_on:
       - backend
