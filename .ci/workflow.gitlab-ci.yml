@@ -3,7 +3,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH == "main"
       variables:
         DOCKER_TAG: main
-        DEPLOY_ENVIRONMENT: production
+        DEPLOY_ENVIRONMENT: development
 
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/
       variables:
