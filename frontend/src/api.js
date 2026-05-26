@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const STORAGE_KEY = "shop_auth";
 
 export function loadAuth() {
