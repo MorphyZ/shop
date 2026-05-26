@@ -1,0 +1,8 @@
+.prepare_settings:
+  script:
+    - |
+      if [[ "$CI_COMMIT_TAG" != "" ]]; then
+        echo "from .prod import *" > server/conf/settings/__init__.py
+      else
+        echo "from .dev import *" > server/conf/settings/__init__.py
+      fi

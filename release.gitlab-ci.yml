@@ -1,0 +1,9 @@
+release:
+  stage: publish
+  image: lettore/gitlab-release-cli:latest
+  script: echo "Running the release job."
+  rules:
+    - if: $RELEASE_VERSION
+  release:
+    tag_name: $RELEASE_VERSION
+    description: CHANGELOG.md

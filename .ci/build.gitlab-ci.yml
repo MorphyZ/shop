@@ -1,0 +1,33 @@
+.build_kaniko:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - >
+      cat > /kaniko/.docker/config.json <<EOF
+      {"auths":{"$CI_REGISTRY":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"}}}
+      EOF
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/
+
+build_backend:
+  extends: .build_kaniko
+  script:
+    - >
+      /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/backend/Dockerfile"
+      --destination "$CI_REGISTRY_IMAGE/backend:$DOCKER_TAG"
+
+build_frontend:
+  extends: .build_kaniko
+  script:
+    - >
+      /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/frontend/Dockerfile"
+      --target prod
+      --destination "$CI_REGISTRY_IMAGE/frontend:$DOCKER_TAG"

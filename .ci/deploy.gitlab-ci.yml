@@ -3,14 +3,22 @@
   image: alpine:3.20
   before_script:
     - apk add --no-cache openssh-client rsync
-    - test -n "$DEPLOY_HOST"
-    - test -n "$DEPLOY_USER"
-    - test -n "$SSH_PRIVATE_KEY"
+    - test -n "$SSH_USER"
+    - test -n "$SSH_DIR"
+    - test -n "$DEPLOY_PROJECT"
+    - TARGET_HOST="${SSH_HOST:-$DEPLOY_HOST}"
+    - test -n "$TARGET_HOST"
+    - export TARGET_HOST
     - eval "$(ssh-agent -s)"
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - |
+      if [ -n "$SSH_PRIVATE_KEY" ]; then
+        echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+      else
+        echo "SSH_PRIVATE_KEY is not set. Using runner SSH auth."
+      fi
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+    - ssh-keyscan -p "${SSH_PORT:-22}" -H "$TARGET_HOST" >> ~/.ssh/known_hosts
   script:
     - |
       if [ "$DEPLOY_ENVIRONMENT" = "production" ]; then
@@ -18,17 +26,34 @@
       else
         COMPOSE_FILE="docker-compose.dev.yml"
       fi
-    - rsync -az --delete ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+      export COMPOSE_FILE
+    - export DEPLOY_PATH="$SSH_DIR/$DEPLOY_PROJECT"
     - |
-      ssh "$DEPLOY_USER@$DEPLOY_HOST" "
+      cat > .deploy.env <<EOF
+      CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE
+      DOCKER_TAG=$DOCKER_TAG
+      POSTGRES_DB=${POSTGRES_DB:-shop_db}
+      POSTGRES_USER=${POSTGRES_USER:-shop_user}
+      POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-shop_pass}
+      POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-change-me}
+      ALLOWED_HOSTS=${ALLOWED_HOSTS:-127.0.0.1,localhost,nginx}
+      CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+      CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+      EOF
+    - ssh "$SSH_USER@$TARGET_HOST" -p "${SSH_PORT:-22}" "mkdir -p '$DEPLOY_PATH/conf.dev' '$DEPLOY_PATH/conf.prod'"
+    - rsync -az --delete --exclude '.git' --exclude '.venv' --exclude 'frontend/node_modules' ./ "$SSH_USER@$TARGET_HOST:$DEPLOY_PATH/"
+    - scp -P "${SSH_PORT:-22}" .deploy.env "$SSH_USER@$TARGET_HOST:$DEPLOY_PATH/.env"
+    - !reference [.remote_docker_login, script]
+    - |
+      ssh "$SSH_USER@$TARGET_HOST" -p "${SSH_PORT:-22}" "
         cd '$DEPLOY_PATH' &&
-        docker compose -f '$COMPOSE_FILE' pull || true &&
-        docker compose -f '$COMPOSE_FILE' up -d --build --remove-orphans
+        docker compose --project-name '$DEPLOY_PROJECT' -f '$COMPOSE_FILE' pull &&
+        docker compose --project-name '$DEPLOY_PROJECT' -f '$COMPOSE_FILE' up -d --remove-orphans
       "
 
-# Требуемые CI/CD переменные в GitLab:
-# DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH, SSH_PRIVATE_KEY
-# Необязательные: DEPLOY_PORT и т.д.
+# Required variables in GitLab CI/CD:
+# CI_REGISTRY_IMAGE (predefined), SSH_USER, SSH_HOST or DEPLOY_HOST, SSH_PORT, SSH_DIR, DEPLOY_PROJECT, SSH_PRIVATE_KEY
 
 deploy:
   extends: .deploy_base

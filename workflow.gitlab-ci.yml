@@ -1,0 +1,17 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      variables:
+        DOCKER_TAG: main
+        DEPLOY_ENVIRONMENT: development
+
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/
+      variables:
+        RELEASE_VERSION: $CI_COMMIT_TAG
+        DOCKER_TAG: latest
+        DEPLOY_ENVIRONMENT: production
+
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: always
+
+    - when: never

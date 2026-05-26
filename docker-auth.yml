@@ -1,0 +1,10 @@
+.docker_login:
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+
+.remote_docker_login:
+  script:
+    - |
+      TARGET_HOST="${SSH_HOST:-$DEPLOY_HOST}"
+      ssh "$SSH_USER@$TARGET_HOST" -p "${SSH_PORT:-22}" \
+        "echo '$CI_REGISTRY_PASSWORD' | docker login '$CI_REGISTRY' -u '$CI_REGISTRY_USER' --password-stdin"

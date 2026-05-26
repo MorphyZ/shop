@@ -1,0 +1,19 @@
+# Определение версии проекта на основе истории git
+gitversion:
+  image:
+    name: gittools/gitversion:latest
+    entrypoint: [""]
+  stage: .pre
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_DEPTH: 0
+  cache: []
+  before_script: []
+  after_script: []
+  script:
+    - if $(git rev-parse --is-shallow-repository); then git fetch --unshallow; fi
+    - /tools/dotnet-gitversion /output buildserver
+    - grep -e _SemVer -e _EscapedBranchName gitversion.properties > gitversion.env
+  artifacts:
+    reports:
+      dotenv: gitversion.env

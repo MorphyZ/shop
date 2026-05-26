@@ -1,13 +1,110 @@
-# АСУ «Магазин» (Django + Vue + PostgreSQL)
+# АСУ «Магазин» (Monorepo: backend + frontend)
 
-Проект настроен под GitLab и Docker-структуру в стиле твоего примера из `D:\primer`.
+Проект переведен на GitLab CI/CD и Docker-структуру под монорепозиторий.
 
-## Git
+## 1. Текущая Docker-структура
 
-- Основной remote: `origin` -> `https://gitlab.flexidev.ru/shop-kurs/shop.git`
-- Резервный remote: `github` -> старый GitHub
-- Рабочая ветка: только `main`
-- Ветка `develop` удалена локально и на GitLab
+В репозитории используются:
+
+- `docker-compose.dev.yml`
+- `docker-compose.prod.yml`
+- `conf.dev/nginx.conf`
+- `conf.prod/nginx.conf`
+- `.gitlab-ci.yml`
+- `.ci/build.gitlab-ci.yml`
+- `.ci/deploy.gitlab-ci.yml`
+
+Файл `docker-compose.yml` намеренно не используется.
+
+## 2. Как устроен CI/CD
+
+### Главный файл
+
+- `.gitlab-ci.yml` подключает твои правила:
+  - `workflow.gitlab-ci.yml`
+  - `docker.gitlab-ci.yml`
+  - `docker-auth.yml`
+  - `gitversion-ci-cd-plugin-extension.gitlab-ci.yml`
+  - `prepare-settings.yml`
+  - `release.gitlab-ci.yml`
+  - локальные `.ci/*.gitlab-ci.yml`
+
+### Локальные CI-файлы
+
+- `.ci/build.gitlab-ci.yml`
+  - build/push backend image: `$CI_REGISTRY_IMAGE/backend:$DOCKER_TAG`
+  - build/push frontend image: `$CI_REGISTRY_IMAGE/frontend:$DOCKER_TAG`
+
+- `.ci/deploy.gitlab-ci.yml`
+  - деплой по SSH
+  - выбор compose-файла по окружению (`dev`/`prod`)
+  - логин в registry на удаленном сервере
+  - `docker compose pull` + `docker compose up -d --remove-orphans`
+
+## 3. Используемые CI/CD переменные
+
+Из твоего списка используются:
+
+- `CI_REGISTRY_IMAGE`
+- `DEPLOY_HOST` (fallback, если не задан `SSH_HOST`)
+- `DEPLOY_PROJECT`
+- `SSH_DIR`
+- `SSH_HOST`
+- `SSH_PORT`
+- `SSH_USER`
+
+Дополнительно для deploy нужен:
+
+- `SSH_PRIVATE_KEY`
+
+## 4. Docker Compose (важно)
+
+Оба compose-файла поддерживают и `image`, и `build`:
+
+- В CI/CD и на сервере используется `image` из registry.
+- Локально можно запустить даже без registry, через `build`.
+
+## 5. Локальный запуск Docker (dev)
+
+```powershell
+cd D:\Kurs
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Открыть:
+
+- `http://localhost:8005`
+
+## 6. Локальный запуск без Docker
+
+Backend:
+
+```powershell
+cd D:\Kurs
+.\.venv\Scripts\python backend\manage.py runserver 127.0.0.1:8000
+```
+
+Frontend:
+
+```powershell
+cd D:\Kurs\frontend
+npm run dev
+```
+
+Открыть:
+
+- `http://127.0.0.1:5173`
+
+## 7. Деплой через CI
+
+- Push в `main` -> собираются образы.
+- Тег `v*` -> release-поток (по твоим правилам workflow).
+- Deploy job запускается вручную из GitLab pipeline.
+
+## 8. Git remotes
+
+- `origin` -> GitLab (`https://gitlab.flexidev.ru/shop-kurs/shop.git`)
+- `github` -> старый резервный remote
 
 Проверка:
 
@@ -15,132 +112,3 @@
 git remote -v
 git branch -vv
 ```
-
-## Docker-структура (как в примере)
-
-В проекте теперь есть:
-
-- `docker-compose.dev.yml`
-- `docker-compose.prod.yml`
-- `.gitlab-ci.yml`
-- `.ci/deploy.gitlab-ci.yml`
-- `conf.dev/nginx.conf`
-- `conf.prod/nginx.conf`
-
-И важный момент:
-
-- `docker-compose.yml` удален специально, чтобы не было путаницы.
-
-## Быстрый запуск без Docker
-
-```powershell
-cd D:\Kurs
-python -m venv .venv
-.\.venv\Scripts\python -m pip install --upgrade pip
-.\.venv\Scripts\python -m pip install -r backend\requirements.txt
-Copy-Item .env.example .env
-powershell -ExecutionPolicy Bypass -File .\scripts\setup_postgres.ps1
-.\.venv\Scripts\python backend\manage.py migrate
-.\.venv\Scripts\python backend\manage.py seed_demo
-.\.venv\Scripts\python backend\manage.py runserver 127.0.0.1:8000
-```
-
-Во втором терминале:
-
-```powershell
-cd D:\Kurs\frontend
-npm install
-npm run dev
-```
-
-## Docker запуск (dev)
-
-```powershell
-cd D:\Kurs
-docker compose -f docker-compose.dev.yml up --build
-```
-
-Открывать:
-
-- `http://localhost:8005`
-
-## Docker запуск (prod)
-
-```powershell
-cd D:\Kurs
-docker compose -f docker-compose.prod.yml up --build -d
-```
-
-Открывать:
-
-- `http://localhost`
-
-## Как устроены compose-файлы
-
-### `docker-compose.dev.yml`
-
-- `db` (PostgreSQL)
-- `backend` (Django runserver)
-- `frontend` (Vite dev server)
-- `nginx` (прокси на frontend/backend, порт `8005`)
-
-### `docker-compose.prod.yml`
-
-- `db` (PostgreSQL)
-- `backend` (gunicorn)
-- `frontend` (собранный frontend на nginx внутри контейнера)
-- `nginx` (внешний reverse proxy, порт `80`)
-
-## GitLab CI/CD
-
-Файлы:
-
-- `.gitlab-ci.yml` — сборка Docker-образов backend/frontend
-- `.ci/deploy.gitlab-ci.yml` — шаблон деплоя на сервер по SSH
-
-Триггеры pipeline:
-
-- Push в `main` -> build job
-- Тег `v*` (например `v1.0.0`) -> release/build режим
-
-## Что нужно заполнить в GitLab Variables для deploy
-
-Для job `deploy` нужны переменные:
-
-- `DEPLOY_HOST`
-- `DEPLOY_USER`
-- `DEPLOY_PATH`
-- `SSH_PRIVATE_KEY` (masked/protected)
-
-Без этих переменных deploy job не выполнится.
-
-## Роли в системе
-
-Демо-пользователи:
-
-- `admin / admin12345`
-- `operator / user12345`
-
-`admin`:
-- полное редактирование данных;
-- закупки/оприходование;
-- изменение остатков/цен;
-- управление отделами.
-
-`operator`:
-- просмотр данных;
-- создание продаж;
-- без админ-операций.
-
-## Изменение остатков товара на базе
-
-Самый простой способ:
-
-1. Войти в `http://127.0.0.1:8000/admin/` как `admin`
-2. Открыть `Base stocks`
-3. Изменить `quantity` и `purchase_price` прямо в списке
-4. Нажать `Save`
-
-## Примечание по безопасности
-
-Рекомендуется сменить пароль GitLab, который был отправлен в чат, и использовать Personal Access Token для Git-операций.

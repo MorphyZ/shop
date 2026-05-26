@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-shop_db}
       POSTGRES_USER: ${POSTGRES_USER:-shop_user}
@@ -14,21 +15,24 @@ services:
       retries: 10
 
   backend:
+    image: ${CI_REGISTRY_IMAGE:-local/shop}/backend:${DOCKER_TAG:-main}
     build:
       context: .
       dockerfile: backend/Dockerfile
-    env_file:
-      - .env
+    restart: unless-stopped
     environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-shop_db}
+      POSTGRES_USER: ${POSTGRES_USER:-shop_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shop_pass}
       POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       USE_SQLITE: 0
-      LOAD_DEMO_DATA: 1
-      DEBUG: 1
-      ALLOWED_HOSTS: 127.0.0.1,localhost,backend,nginx
-    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-    volumes:
-      - ./backend:/app
+      LOAD_DEMO_DATA: ${LOAD_DEMO_DATA:-1}
+      DEBUG: ${DEBUG:-1}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-127.0.0.1,localhost,backend,nginx}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8005}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8005}
     depends_on:
       db:
         condition: service_healthy
@@ -36,23 +40,20 @@ services:
       - "8000"
 
   frontend:
+    image: ${CI_REGISTRY_IMAGE:-local/shop}/frontend:${DOCKER_TAG:-main}
     build:
       context: .
       dockerfile: frontend/Dockerfile
-      target: dev
-    environment:
-      VITE_API_BASE_URL: ""
-      VITE_BACKEND_PROXY: http://backend:8000
-    volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
+      target: prod
+    restart: unless-stopped
     depends_on:
       - backend
     expose:
-      - "5173"
+      - "80"
 
   nginx:
     image: nginx:1.27-alpine
+    restart: unless-stopped
     depends_on:
       - backend
       - frontend
@@ -63,4 +64,3 @@ services:
 
 volumes:
   pg_data:
-  frontend_node_modules:

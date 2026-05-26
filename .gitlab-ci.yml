@@ -1,49 +1,23 @@
 stages:
+  - .pre
   - build
+  - publish
   - deploy
 
-variables:
-  DOCKER_TLS_CERTDIR: "/certs"
-  DOCKER_DRIVER: overlay2
-  DOCKER_TAG: "main"
-
-workflow:
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      variables:
-        DOCKER_TAG: "main"
-        DEPLOY_ENVIRONMENT: "development"
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/
-      variables:
-        DOCKER_TAG: "latest"
-        DEPLOY_ENVIRONMENT: "production"
-    - when: never
-
 include:
+  - local: 'workflow.gitlab-ci.yml'
+  - local: 'docker.gitlab-ci.yml'
+  - local: 'docker-auth.yml'
+  - local: 'gitversion-ci-cd-plugin-extension.gitlab-ci.yml'
+  - local: 'prepare-settings.yml'
+  - local: 'release.gitlab-ci.yml'
+  - local: '.ci/build.gitlab-ci.yml'
   - local: '.ci/deploy.gitlab-ci.yml'
 
-build_backend:
-  stage: build
-  image: docker:27
-  services:
-    - docker:27-dind
-  script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - docker build -f backend/Dockerfile -t "$CI_REGISTRY_IMAGE/backend:$DOCKER_TAG" .
-    - docker push "$CI_REGISTRY_IMAGE/backend:$DOCKER_TAG"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/
-
-build_frontend:
-  stage: build
-  image: docker:27
-  services:
-    - docker:27-dind
-  script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - docker build -f frontend/Dockerfile --target prod -t "$CI_REGISTRY_IMAGE/frontend:$DOCKER_TAG" .
-    - docker push "$CI_REGISTRY_IMAGE/frontend:$DOCKER_TAG"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+(\.\d+)?$/
+variables:
+  DOCKER_TAG:
+    value: main
+    description: Docker image tag used for build and deploy
+  DEPLOY_ENVIRONMENT:
+    value: development
+    description: Target environment (development or production)
