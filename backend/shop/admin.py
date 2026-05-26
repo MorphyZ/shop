@@ -52,12 +52,18 @@ class SupplierBaseAdmin(admin.ModelAdmin):
 class BaseStockAdmin(admin.ModelAdmin):
     list_display = ("id", "base", "product", "grade", "quantity", "purchase_price")
     list_filter = ("base", "product")
+    search_fields = ("base__name", "product__name", "grade")
+    list_editable = ("quantity", "purchase_price")
+    ordering = ("base__name", "product__name", "grade")
 
 
 @admin.register(DepartmentStock)
 class DepartmentStockAdmin(admin.ModelAdmin):
     list_display = ("id", "department", "product", "grade", "quantity", "retail_price")
     list_filter = ("department", "product")
+    search_fields = ("department__name", "product__name", "grade")
+    list_editable = ("quantity", "retail_price")
+    ordering = ("department__name", "product__name", "grade")
 
 
 @admin.register(PurchaseOrder)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 
@@ -8,9 +10,54 @@ from django.db import transaction
 from django.db.models import F
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from .models import BaseStock, DepartmentStock, PurchaseOrder, Sale
+
+
+@lru_cache(maxsize=1)
+def _resolve_pdf_fonts() -> tuple[str, str]:
+    """
+    Returns (regular_font_name, bold_font_name) for PDF rendering.
+    Falls back to built-in Helvetica if no Unicode-capable TTF is found.
+    """
+    regular_name = "ShopPDF-Regular"
+    bold_name = "ShopPDF-Bold"
+
+    base_dir = Path(__file__).resolve().parent
+    candidates = [
+        # Optional project-local fonts (highest priority)
+        (base_dir / "fonts" / "DejaVuSans.ttf", base_dir / "fonts" / "DejaVuSans-Bold.ttf"),
+        # Linux (Docker / server)
+        (
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        ),
+        # Windows
+        (Path("C:/Windows/Fonts/arial.ttf"), Path("C:/Windows/Fonts/arialbd.ttf")),
+        (Path("C:/Windows/Fonts/tahoma.ttf"), Path("C:/Windows/Fonts/tahomabd.ttf")),
+    ]
+
+    for regular_path, bold_path in candidates:
+        if not regular_path.exists():
+            continue
+
+        try:
+            if regular_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(regular_name, str(regular_path)))
+
+            if bold_path.exists():
+                if bold_name not in pdfmetrics.getRegisteredFontNames():
+                    pdfmetrics.registerFont(TTFont(bold_name, str(bold_path)))
+                return regular_name, bold_name
+
+            return regular_name, regular_name
+        except Exception:
+            continue
+
+    return "Helvetica", "Helvetica-Bold"
 
 
 def calculate_retail_price(purchase_price: Decimal, store_class: str) -> Decimal:
@@ -111,16 +158,17 @@ def apply_sale_inventory(sale: Sale) -> Sale:
 
 
 def build_purchase_order_pdf(order: PurchaseOrder) -> bytes:
+    font_regular, font_bold = _resolve_pdf_fonts()
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
     y = height - 20 * mm
-    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFont(font_bold, 14)
     pdf.drawString(20 * mm, y, "Заявка на закупку товара")
 
     y -= 10 * mm
-    pdf.setFont("Helvetica", 10)
+    pdf.setFont(font_regular, 10)
     pdf.drawString(20 * mm, y, f"Заявка №{order.id}")
     y -= 6 * mm
     pdf.drawString(20 * mm, y, f"Магазин: {order.store.name} (№{order.store.number})")
@@ -131,20 +179,20 @@ def build_purchase_order_pdf(order: PurchaseOrder) -> bytes:
     pdf.drawString(20 * mm, y, f"Отдел назначения: {department_name}")
     y -= 10 * mm
 
-    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFont(font_bold, 10)
     pdf.drawString(20 * mm, y, "Товар")
     pdf.drawString(85 * mm, y, "Сорт")
     pdf.drawString(120 * mm, y, "Кол-во")
     pdf.drawString(145 * mm, y, "Закуп. цена")
 
     total = Decimal("0")
-    pdf.setFont("Helvetica", 10)
+    pdf.setFont(font_regular, 10)
     for item in order.items.select_related("product").all():
         y -= 6 * mm
         if y < 20 * mm:
             pdf.showPage()
             y = height - 20 * mm
-            pdf.setFont("Helvetica", 10)
+            pdf.setFont(font_regular, 10)
 
         line_total = Decimal(item.quantity) * item.purchase_price
         total += line_total
@@ -154,7 +202,7 @@ def build_purchase_order_pdf(order: PurchaseOrder) -> bytes:
         pdf.drawRightString(190 * mm, y, f"{item.purchase_price} руб.")
 
     y -= 10 * mm
-    pdf.setFont("Helvetica-Bold", 11)
+    pdf.setFont(font_bold, 11)
     pdf.drawRightString(190 * mm, y, f"Итого: {total.quantize(Decimal('0.01'))} руб.")
 
     pdf.showPage()
